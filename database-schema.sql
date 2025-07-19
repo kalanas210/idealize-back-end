@@ -286,6 +286,24 @@ CREATE TABLE admin_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Zoom meetings
+CREATE TABLE zoom_meetings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    meeting_id VARCHAR(100) UNIQUE NOT NULL, -- Zoom meeting ID
+    topic VARCHAR(255) NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    duration INTEGER NOT NULL CHECK (duration >= 15 AND duration <= 480),
+    join_url TEXT NOT NULL,
+    start_url TEXT NOT NULL,
+    password VARCHAR(20) NOT NULL,
+    buyer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    seller_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    gig_id UUID REFERENCES gigs(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'started', 'completed', 'cancelled', 'joined')),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
@@ -325,6 +343,12 @@ CREATE INDEX idx_saved_influencers_influencer_id ON saved_influencers(influencer
 
 CREATE INDEX idx_saved_gigs_buyer_id ON saved_gigs(buyer_id);
 CREATE INDEX idx_saved_gigs_gig_id ON saved_gigs(gig_id);
+
+CREATE INDEX idx_zoom_meetings_buyer_id ON zoom_meetings(buyer_id);
+CREATE INDEX idx_zoom_meetings_seller_id ON zoom_meetings(seller_id);
+CREATE INDEX idx_zoom_meetings_gig_id ON zoom_meetings(gig_id);
+CREATE INDEX idx_zoom_meetings_status ON zoom_meetings(status);
+CREATE INDEX idx_zoom_meetings_start_time ON zoom_meetings(start_time);
 
 -- Insert default categories
 INSERT INTO categories (name, slug, description) VALUES
@@ -390,6 +414,9 @@ CREATE TRIGGER update_gigs_updated_at BEFORE UPDATE ON gigs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_zoom_meetings_updated_at BEFORE UPDATE ON zoom_meetings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Note: This schema provides a solid foundation for the SocyAds platform.

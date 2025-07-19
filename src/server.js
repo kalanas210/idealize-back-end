@@ -22,6 +22,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const sellerDashboardRoutes = require('./routes/sellerDashboardRoutes');
 const buyerDashboardRoutes = require('./routes/buyerDashboardRoutes');
+const zoomRoutes = require('./routes/zoomRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -43,7 +45,9 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173'],
   credentials: true
 }));
 app.use(morgan('combined')); // Logging
@@ -135,6 +139,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/seller', sellerDashboardRoutes);
 app.use('/api/buyer', buyerDashboardRoutes);
+app.use('/api/zoom', zoomRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Welcome message for root endpoint
 app.get('/', (req, res) => {
@@ -154,7 +160,9 @@ app.get('/', (req, res) => {
       admin: '/api/admin',
       upload: '/api/upload',
       'seller-dashboard': '/api/seller/dashboard',
-      'buyer-dashboard': '/api/buyer/dashboard'
+      'buyer-dashboard': '/api/buyer/dashboard',
+      'zoom-meetings': '/api/zoom/meetings',
+      'ai-ask': '/api/ai/ask'
     }
   });
 });

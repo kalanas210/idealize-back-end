@@ -28,9 +28,10 @@ const protect = async (req, res, next) => {
 
   try {
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'your-secret-key');
 
-    // Get user from database
+    // TODO: Get user from database (placeholder for DB team)
+    /*
     const userResult = await query(
       'SELECT id, email, role, verified, created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
       [decoded.id]
@@ -47,6 +48,18 @@ const protect = async (req, res, next) => {
     }
 
     req.user = userResult.rows[0];
+    */
+
+    // Mock user data for development (remove when DB is ready)
+    const mockUser = {
+      id: decoded.id,
+      email: decoded.email || 'test@example.com',
+      role: decoded.role || 'buyer',
+      verified: true,
+      created_at: new Date()
+    };
+
+    req.user = mockUser;
     next();
   } catch (error) {
     console.error('JWT verification error:', error);

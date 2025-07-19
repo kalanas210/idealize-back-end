@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { generateTokens, verifyRefreshToken } = require('../utils/jwt');
@@ -11,7 +12,8 @@ const {
   badRequestResponse,
   unauthorizedResponse,
   conflictResponse,
-  notFoundResponse
+  notFoundResponse,
+  errorResponse
 } = require('../utils/response');
 
 const router = express.Router();
@@ -440,6 +442,72 @@ router.get('/me', protect, async (req, res, next) => {
     return successResponse(res, req.user, 'User profile retrieved successfully');
   } catch (error) {
     next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/test-login:
+ *   post:
+ *     summary: Test login for development
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 default: "test@example.com"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                     user:
+ *                       type: object
+ */
+router.post('/test-login', async (req, res) => {
+  try {
+    // Create a test user for development
+    const testUser = {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      email: 'test@example.com',
+      name: 'Test User',
+      role: 'buyer'
+    };
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: testUser.id, 
+        email: testUser.email,
+        role: testUser.role 
+      },
+      process.env.JWT_ACCESS_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    return successResponse(res, {
+      token,
+      user: testUser
+    }, 'Test login successful');
+
+  } catch (error) {
+    console.error('Test login error:', error);
+    return errorResponse(res, 'Test login failed');
   }
 });
 

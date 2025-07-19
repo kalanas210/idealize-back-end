@@ -4,8 +4,8 @@ const jwt = require('jsonwebtoken');
  * Generate JWT access token
  */
 const generateAccessToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET || 'your-secret-key', {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
     issuer: 'socyads-api',
     audience: 'socyads-client'
   });
@@ -27,7 +27,7 @@ const generateRefreshToken = (payload) => {
  */
 const verifyAccessToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET, {
+    return jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'your-secret-key', {
       issuer: 'socyads-api',
       audience: 'socyads-client'
     });

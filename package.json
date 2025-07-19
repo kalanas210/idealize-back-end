@@ -7,9 +7,12 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "setup": "node scripts/setup.js",
+    "setup:ai": "node setup-ai.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:dashboard": "node test-seller-dashboard.js",
-    "test:buyer-dashboard": "node test-buyer-dashboard.js"
+    "test:buyer-dashboard": "node test-buyer-dashboard.js",
+    "test:zoom": "node test-zoom-integration.js",
+    "test:ai": "node test-ai-feature.js"
   },
   "repository": {
     "type": "git",
@@ -42,6 +45,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
+    "openai": "^4.104.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.16.2",
