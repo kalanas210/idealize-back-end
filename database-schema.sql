@@ -18,7 +18,7 @@ CREATE TABLE users (
     bio TEXT,
     location VARCHAR(255),
     timezone VARCHAR(50),
-    languages TEXT[], -- Array of languages spoken
+    languages TEXT[], -- Array of languages spocdken
     skills TEXT[], -- Array of skills
     member_since VARCHAR(4),
     response_time VARCHAR(50),
@@ -255,6 +255,24 @@ CREATE TABLE user_sessions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Saved influencers for buyers
+CREATE TABLE saved_influencers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    buyer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    influencer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(buyer_id, influencer_id)
+);
+
+-- Saved gigs for buyers
+CREATE TABLE saved_gigs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    buyer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    gig_id UUID REFERENCES gigs(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(buyer_id, gig_id)
+);
+
 -- Admin activity logs
 CREATE TABLE admin_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -301,6 +319,12 @@ CREATE INDEX idx_messages_created_at ON messages(created_at);
 
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_read_at ON notifications(read_at);
+
+CREATE INDEX idx_saved_influencers_buyer_id ON saved_influencers(buyer_id);
+CREATE INDEX idx_saved_influencers_influencer_id ON saved_influencers(influencer_id);
+
+CREATE INDEX idx_saved_gigs_buyer_id ON saved_gigs(buyer_id);
+CREATE INDEX idx_saved_gigs_gig_id ON saved_gigs(gig_id);
 
 -- Insert default categories
 INSERT INTO categories (name, slug, description) VALUES

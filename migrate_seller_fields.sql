@@ -1,0 +1,6 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS professional_title VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS experience VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS social_accounts JSONB,
+  ADD COLUMN IF NOT EXISTS portfolio JSONB,
+  ADD COLUMN IF NOT EXISTS verification_docs JSONB;

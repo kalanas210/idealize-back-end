@@ -20,6 +20,8 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const sellerDashboardRoutes = require('./routes/sellerDashboardRoutes');
+const buyerDashboardRoutes = require('./routes/buyerDashboardRoutes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -131,6 +133,8 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/seller', sellerDashboardRoutes);
+app.use('/api/buyer', buyerDashboardRoutes);
 
 // Welcome message for root endpoint
 app.get('/', (req, res) => {
@@ -148,7 +152,9 @@ app.get('/', (req, res) => {
       reviews: '/api/reviews',
       messages: '/api/messages',
       admin: '/api/admin',
-      upload: '/api/upload'
+      upload: '/api/upload',
+      'seller-dashboard': '/api/seller/dashboard',
+      'buyer-dashboard': '/api/buyer/dashboard'
     }
   });
 });

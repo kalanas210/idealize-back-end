@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../config/database');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, clerkProtect } = require('../middleware/auth');
 const { successResponse, notFoundResponse, paginatedResponse, errorResponse } = require('../utils/response');
 const { body, validationResult } = require('express-validator');
 
@@ -20,7 +20,7 @@ const router = express.Router();
  *       401:
  *         description: Not authenticated
  */
-router.get('/profile', protect, async (req, res, next) => {
+router.get('/profile', clerkProtect, async (req, res, next) => {
   try {
     return successResponse(res, req.user, 'User profile retrieved successfully');
   } catch (error) {
@@ -59,7 +59,7 @@ router.get('/profile', protect, async (req, res, next) => {
  *       200:
  *         description: Profile updated successfully
  */
-router.put('/profile', protect, async (req, res, next) => {
+router.put('/profile', clerkProtect, async (req, res, next) => {
   try {
     const { name, avatar, bio, location, skills } = req.body;
 
@@ -266,7 +266,7 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
  *         description: Server error
  */
 router.post('/become-seller',
-  protect,
+  clerkProtect,
   [
     body('bio').trim().isLength({ min: 50, max: 1000 })
       .withMessage('Bio must be between 50 and 1000 characters'),
@@ -279,7 +279,15 @@ router.post('/become-seller',
     body('languages.*').trim().isLength({ min: 2, max: 30 })
       .withMessage('Each language must be between 2 and 30 characters'),
     body('location').optional().trim().isLength({ min: 2, max: 100 }),
-    body('timezone').optional().trim().isLength({ min: 2, max: 50 })
+    body('timezone').optional().trim().isLength({ min: 2, max: 50 }),
+    body('name').optional().trim().isLength({ min: 2, max: 100 }),
+    body('phone').optional().trim().isLength({ min: 5, max: 20 }),
+    body('professionalTitle').optional().trim().isLength({ min: 2, max: 100 }),
+    body('experience').optional().trim().isLength({ min: 1, max: 50 }),
+    body('avatar').optional().isString(),
+    body('socialAccounts').optional().isObject(),
+    body('portfolio').optional().isArray(),
+    body('verificationDocs').optional().isArray()
   ],
   async (req, res) => {
     try {
@@ -290,49 +298,56 @@ router.post('/become-seller',
       }
 
       const userId = req.user.id;
-      const { bio, skills, languages, location, timezone } = req.body;
+      const {
+        bio, skills, languages, location, timezone,
+        name, phone, professionalTitle, experience, avatar,
+        socialAccounts, portfolio, verificationDocs
+      } = req.body;
 
-      // TODO: Replace with actual database query
-      /*
       // Check if user is already a seller
-      const user = await pool.query(
-        'SELECT role FROM users WHERE id = $1',
-        [userId]
-      );
-
-      if (user.rows[0].role === 'seller') {
+      if (req.user.role === 'seller') {
         return errorResponse(res, 'User is already a seller', 400);
       }
 
       // Update user to seller role and add seller info
-      const result = await pool.query(
+      const result = await query(
         `UPDATE users 
          SET role = 'seller',
-             bio = $1,
-             skills = $2,
-             languages = $3,
-             location = $4,
-             timezone = $5,
+             name = COALESCE($1, name),
+             phone = $2,
+             professional_title = $3,
+             experience = $4,
+             bio = $5,
+             skills = $6,
+             languages = $7,
+             location = $8,
+             timezone = $9,
+             avatar = $10,
+             social_accounts = $11,
+             portfolio = $12,
+             verification_docs = $13,
              updated_at = NOW()
-         WHERE id = $6
-         RETURNING id, email, username, role, bio, skills, languages, location, timezone`,
-        [bio, skills, languages, location, timezone, userId]
+         WHERE id = $14
+         RETURNING id, email, username, role, name, phone, professional_title, experience, bio, skills, languages, location, timezone, avatar, social_accounts, portfolio, verification_docs`,
+        [
+          name,
+          phone,
+          professionalTitle,
+          experience,
+          bio,
+          skills,
+          languages,
+          location,
+          timezone,
+          avatar,
+          socialAccounts ? JSON.stringify(socialAccounts) : null,
+          portfolio ? JSON.stringify(portfolio) : null,
+          verificationDocs ? JSON.stringify(verificationDocs) : null,
+          userId
+        ]
       );
 
       const updatedUser = result.rows[0];
-      */
-
-      // Mock response
-      const updatedUser = {
-        id: userId,
-        role: 'seller',
-        bio,
-        skills,
-        languages,
-        location,
-        timezone,
-        updated_at: new Date()
-      };
 
       return successResponse(res, updatedUser, 'Successfully registered as seller');
 

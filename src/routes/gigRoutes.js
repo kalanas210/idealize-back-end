@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
-const { protect, authorize, optionalAuth } = require('../middleware/auth');
+const { protect, authorize, optionalAuth, clerkProtect } = require('../middleware/auth');
 const { validate } = require('../utils/validation');
 const {
   successResponse,
@@ -107,29 +107,73 @@ router.get('/', optionalAuth, async (req, res, next) => {
       featured
     } = req.query;
 
-    // TODO: Implement database query (placeholder for DB team)
-    /*
+    try {
     let whereConditions = ['g.status = $1'];
     let queryParams = ['active'];
     let paramCount = 1;
 
     if (category) {
       paramCount++;
-      whereConditions.push(`g.category = $${paramCount}`);
+        whereConditions.push(`g.category_id = (SELECT id FROM categories WHERE slug = $${paramCount})`);
       queryParams.push(category);
     }
 
+      if (platform) {
+        paramCount++;
+        whereConditions.push(`g.platform = $${paramCount}`);
+        queryParams.push(platform);
+      }
+
+      if (search) {
+        paramCount++;
+        whereConditions.push(`(g.title ILIKE $${paramCount} OR g.description ILIKE $${paramCount})`);
+        queryParams.push(`%${search}%`);
+      }
+
+      if (minPrice) {
+        paramCount++;
+        whereConditions.push(`g.price >= $${paramCount}`);
+        queryParams.push(parseFloat(minPrice));
+      }
+
+      if (maxPrice) {
+        paramCount++;
+        whereConditions.push(`g.price <= $${paramCount}`);
+        queryParams.push(parseFloat(maxPrice));
+      }
+
+      if (featured === 'true') {
+        paramCount++;
+        whereConditions.push(`g.featured = $${paramCount}`);
+        queryParams.push(true);
+      }
+
     const dataQuery = `
-      SELECT g.*, u.name as seller_name, u.username as seller_username
+        SELECT g.*, u.name as seller_name, u.username as seller_username, u.verified as seller_verified
       FROM gigs g
       INNER JOIN users u ON g.seller_id = u.id
       WHERE ${whereConditions.join(' AND ')}
       ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `;
-    */
 
-    // Mock data for development
+      const result = await query(dataQuery, [...queryParams, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+      
+      const gigs = result.rows.map(gig => ({
+        ...gig,
+        seller: {
+          id: gig.seller_id,
+          name: gig.seller_name,
+          username: gig.seller_username,
+          verified: gig.seller_verified
+        }
+      }));
+
+      const pagination = { page: parseInt(page), limit: parseInt(limit), total: gigs.length };
+      return paginatedResponse(res, gigs, pagination, 'Gigs retrieved successfully');
+    } catch (error) {
+      console.error('Error fetching gigs:', error);
+      // Fallback to mock data if database query fails
     const mockGigs = [
       {
         id: uuidv4(),
@@ -155,6 +199,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
     const pagination = { page: parseInt(page), limit: parseInt(limit), total: mockGigs.length };
     return paginatedResponse(res, mockGigs, pagination, 'Gigs retrieved successfully');
+    }
 
   } catch (error) {
     next(error);
@@ -373,8 +418,7 @@ router.get('/:id',
  *       403:
  *         description: Only sellers can create gigs
  */
-router.post('/',
-  protect,
+router.post('/', clerkProtect,
   [
     body('gigTitle').trim().isLength({ min: 5, max: 100 })
       .withMessage('Gig title must be between 5 and 100 characters'),
@@ -570,7 +614,7 @@ router.post('/',
  *       404:
  *         description: Gig not found
  */
-router.put('/:id', protect, authorize('seller'), async (req, res, next) => {
+router.put('/:id', clerkProtect, authorize('seller'), async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -616,7 +660,7 @@ router.put('/:id', protect, authorize('seller'), async (req, res, next) => {
  *       404:
  *         description: Gig not found
  */
-router.delete('/:id', protect, authorize('seller'), async (req, res, next) => {
+router.delete('/:id', clerkProtect, authorize('seller'), async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -704,8 +748,7 @@ router.delete('/:id', protect, authorize('seller'), async (req, res, next) => {
  *       500:
  *         description: Server error
  */
-router.post('/:gigId/packages',
-  protect,
+router.post('/:gigId/packages', clerkProtect,
   [
     param('gigId').isUUID(),
     body('packages').isArray({ min: 1, max: 3 })

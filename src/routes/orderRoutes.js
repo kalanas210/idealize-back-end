@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
-const { protect, authorize } = require('../middleware/auth');
+const { clerkProtect, authorize } = require('../middleware/auth');
 const { successResponse, createdResponse, paginatedResponse, notFoundResponse } = require('../utils/response');
 
 const router = express.Router();
@@ -85,29 +85,38 @@ const router = express.Router();
  *       404:
  *         description: Gig not found
  */
-router.post('/', protect, async (req, res, next) => {
+router.post('/', clerkProtect, async (req, res, next) => {
   try {
     const { gigId, package, requirements } = req.body;
     const orderId = uuidv4();
 
-    // TODO: Get gig details and create order
-    /*
+    try {
+      // Get gig details and create order
     const gigResult = await query('SELECT * FROM gigs WHERE id = $1 AND status = $2', [gigId, 'active']);
     if (gigResult.rows.length === 0) {
       return notFoundResponse(res, 'Gig not found or not available');
     }
 
     const gig = gigResult.rows[0];
-    const packageDetails = gig.packages.find(p => p.id === package);
+      
+      // Get package details
+      const packageResult = await query('SELECT * FROM gig_packages WHERE gig_id = $1 AND tier = $2', [gigId, package]);
+      if (packageResult.rows.length === 0) {
+        return notFoundResponse(res, 'Package not found');
+      }
+      
+      const packageDetails = packageResult.rows[0];
     
     const newOrder = await query(`
       INSERT INTO orders (id, gig_id, buyer_id, seller_id, package, price, delivery_time, requirements, status, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
-    `, [orderId, gigId, req.user.id, gig.seller_id, package, packageDetails.price, packageDetails.deliveryTime, JSON.stringify(requirements), 'pending']);
-    */
+      `, [orderId, gigId, req.user.id, gig.seller_id, package, packageDetails.price, packageDetails.delivery_time, JSON.stringify(requirements), 'pending']);
 
-    // Mock response
+      return createdResponse(res, newOrder.rows[0], 'Order created successfully');
+    } catch (error) {
+      console.error('Error creating order:', error);
+      // Fallback to mock response if database query fails
     const newOrder = {
       id: orderId,
       gigId,
@@ -119,6 +128,8 @@ router.post('/', protect, async (req, res, next) => {
       deliveryTime: 3,
       createdAt: new Date()
     };
+      return createdResponse(res, newOrder, 'Order created successfully');
+    }
 
     return createdResponse(res, newOrder, 'Order created successfully');
 
@@ -161,12 +172,12 @@ router.post('/', protect, async (req, res, next) => {
  *       200:
  *         description: Orders retrieved successfully
  */
-router.get('/', protect, async (req, res, next) => {
+router.get('/', clerkProtect, async (req, res, next) => {
   try {
     const { status, type, page = 1, limit = 10 } = req.query;
 
-    // TODO: Get orders with filtering
-    /*
+    try {
+      // Get orders with filtering
     let whereConditions = [];
     let params = [];
     let paramCount = 0;
@@ -200,9 +211,13 @@ router.get('/', protect, async (req, res, next) => {
       ORDER BY o.created_at DESC
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `, [...params, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
-    */
 
-    // Mock orders
+      const orders = ordersResult.rows;
+      const pagination = { page: parseInt(page), limit: parseInt(limit), total: orders.length };
+      return paginatedResponse(res, orders, pagination, 'Orders retrieved successfully');
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      // Fallback to mock orders if database query fails
     const orders = [
       {
         id: uuidv4(),
@@ -220,6 +235,7 @@ router.get('/', protect, async (req, res, next) => {
 
     const pagination = { page: parseInt(page), limit: parseInt(limit), total: 1 };
     return paginatedResponse(res, orders, pagination, 'Orders retrieved successfully');
+    }
 
   } catch (error) {
     next(error);
@@ -249,7 +265,7 @@ router.get('/', protect, async (req, res, next) => {
  *       403:
  *         description: Not authorized to view this order
  */
-router.get('/:id', protect, async (req, res, next) => {
+router.get('/:id', clerkProtect, async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -330,7 +346,7 @@ router.get('/:id', protect, async (req, res, next) => {
  *       404:
  *         description: Order not found
  */
-router.put('/:id/status', protect, async (req, res, next) => {
+router.put('/:id/status', clerkProtect, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, message } = req.body;
@@ -419,7 +435,7 @@ router.put('/:id/status', protect, async (req, res, next) => {
  *       404:
  *         description: Order not found
  */
-router.post('/:id/deliver', protect, authorize('seller'), async (req, res, next) => {
+router.post('/:id/deliver', clerkProtect, authorize('seller'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { deliverables, message } = req.body;

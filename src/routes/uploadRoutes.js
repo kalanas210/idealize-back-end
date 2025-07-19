@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { protect } = require('../middleware/auth');
+const { clerkProtect } = require('../middleware/auth');
 const { successResponse, badRequestResponse } = require('../utils/response');
 
 const router = express.Router();
@@ -59,7 +59,7 @@ const upload = multer({
  *       400:
  *         description: Invalid file or upload error
  */
-router.post('/single', protect, upload.single('file'), async (req, res, next) => {
+router.post('/single', clerkProtect, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return badRequestResponse(res, 'No file uploaded');
@@ -108,7 +108,7 @@ router.post('/single', protect, upload.single('file'), async (req, res, next) =>
  *       200:
  *         description: Files uploaded successfully
  */
-router.post('/multiple', protect, upload.array('files', 5), async (req, res, next) => {
+router.post('/multiple', clerkProtect, upload.array('files', 5), async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
       return badRequestResponse(res, 'No files uploaded');

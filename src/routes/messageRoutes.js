@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect } = require('../middleware/auth');
+const { clerkProtect } = require('../middleware/auth');
 const { successResponse, createdResponse, paginatedResponse } = require('../utils/response');
 
 const router = express.Router();
@@ -16,7 +16,7 @@ const router = express.Router();
  *       200:
  *         description: Conversations retrieved successfully
  */
-router.get('/', protect, async (req, res, next) => {
+router.get('/', clerkProtect, async (req, res, next) => {
   try {
     // TODO: Get user conversations
     const conversations = [{
@@ -52,7 +52,7 @@ router.get('/', protect, async (req, res, next) => {
  *       200:
  *         description: Messages retrieved successfully
  */
-router.get('/:conversationId', protect, async (req, res, next) => {
+router.get('/:conversationId', clerkProtect, async (req, res, next) => {
   try {
     // TODO: Get conversation messages
     const messages = [{
@@ -91,7 +91,7 @@ router.get('/:conversationId', protect, async (req, res, next) => {
  *       201:
  *         description: Message sent successfully
  */
-router.post('/', protect, async (req, res, next) => {
+router.post('/', clerkProtect, async (req, res, next) => {
   try {
     const { recipientId, content } = req.body;
     

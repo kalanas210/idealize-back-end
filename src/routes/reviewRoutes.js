@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
-const { protect } = require('../middleware/auth');
+const { clerkProtect } = require('../middleware/auth');
 const { validate } = require('../utils/validation');
 const { successResponse, createdResponse, paginatedResponse, notFoundResponse, forbiddenResponse } = require('../utils/response');
 
@@ -214,7 +214,7 @@ router.get('/gig/:gigId', async (req, res, next) => {
  *       404:
  *         description: Order not found
  */
-router.post('/', protect, validate.createReview, async (req, res, next) => {
+router.post('/', clerkProtect, validate.createReview, async (req, res, next) => {
   try {
     const { orderId, rating, title, comment } = req.body;
     const reviewId = uuidv4();
@@ -314,7 +314,7 @@ router.post('/', protect, validate.createReview, async (req, res, next) => {
  *       404:
  *         description: Review not found
  */
-router.post('/:id/helpful', protect, async (req, res, next) => {
+router.post('/:id/helpful', clerkProtect, async (req, res, next) => {
   try {
     const { id } = req.params;
 

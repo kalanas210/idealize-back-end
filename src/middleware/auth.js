@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
+// Clerk JWT verification middleware
+const { verifyToken } = require('@clerk/backend');
+const { v4: uuidv4 } = require('uuid');
 
 /**
  * Protect routes - verify JWT token
@@ -127,8 +130,55 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
+/**
+ * Clerk Protect middleware - verifies Clerk JWT and syncs user to DB
+ */
+const clerkProtect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'No token provided', code: 'NO_TOKEN' }
+      });
+    }
+    const token = authHeader.substring(7);
+    // Verify Clerk JWT
+    const { payload } = await verifyToken(token);
+    if (!payload || !payload.sub || !payload.email) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Invalid Clerk token', code: 'INVALID_TOKEN' }
+      });
+    }
+    // Check if user exists in DB
+    const userResult = await query('SELECT * FROM users WHERE id = $1', [payload.sub]);
+    let user;
+    if (userResult.rows.length === 0) {
+      // Create user in DB
+      const newUser = await query(
+        `INSERT INTO users (id, email, username, name, role, verified, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+        [payload.sub, payload.email, payload.username || payload.email.split('@')[0], payload.name || '', 'buyer', true]
+      );
+      user = newUser.rows[0];
+    } else {
+      user = userResult.rows[0];
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Clerk JWT verification error:', error);
+    return res.status(401).json({
+      success: false,
+      error: { message: 'Unauthorized', code: 'UNAUTHORIZED' }
+    });
+  }
+};
+
 module.exports = {
   protect,
   authorize,
-  optionalAuth
+  optionalAuth,
+  clerkProtect
 }; 
