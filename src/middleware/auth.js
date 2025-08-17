@@ -155,33 +155,142 @@ const clerkProtect = async (req, res, next) => {
         error: { message: 'No token provided', code: 'NO_TOKEN' }
       });
     }
+    
     const token = authHeader.substring(7);
-    // Verify Clerk JWT
-    const { payload } = await verifyToken(token);
-    if (!payload || !payload.sub || !payload.email) {
-      return res.status(401).json({
+    
+    // Development mode: Always use mock authentication for testing
+    if (process.env.NODE_ENV === 'development') {
+      console.log('⚠️  Development mode: Using mock authentication');
+      
+      // Create a mock user for development (use consistent ID based on token)
+      const mockUserId = token ? `dev-user-${token.substring(0, 8)}` : 'dev-user-default';
+      
+      // Try to get the actual user role from database first
+      try {
+        const result = await query(
+          'SELECT id, email, username, name, role, verified FROM users WHERE id = $1',
+          [mockUserId]
+        );
+        
+        if (result.rows.length > 0) {
+          const dbUser = result.rows[0];
+          console.log('✅ Mock user found in database:', dbUser);
+          req.user = dbUser;
+        } else {
+          // Create new mock user with default role
+          req.user = {
+            id: mockUserId,
+            email: 'test@example.com',
+            username: 'testuser',
+            name: 'Test User',
+            role: 'buyer',
+            verified: true
+          };
+          console.log('✅ New mock user created:', req.user);
+        }
+      } catch (dbError) {
+        console.log('⚠️  Database query failed, using default mock user:', dbError.message);
+        // Fallback to default mock user
+        req.user = {
+          id: mockUserId,
+          email: 'test@example.com',
+          username: 'testuser',
+          name: 'Test User',
+          role: 'buyer',
+          verified: true
+        };
+        console.log('✅ Fallback mock user created:', req.user);
+      }
+      
+      return next();
+    }
+    
+    // Production mode: Verify Clerk JWT
+    if (!process.env.CLERK_SECRET_KEY) {
+      return res.status(500).json({
         success: false,
-        error: { message: 'Invalid Clerk token', code: 'INVALID_TOKEN' }
+        error: { message: 'Clerk not configured for production', code: 'CLERK_NOT_CONFIGURED' }
       });
     }
-    // Check if user exists in DB
-    const userResult = await query('SELECT * FROM users WHERE id = $1', [payload.sub]);
-    let user;
-    if (userResult.rows.length === 0) {
-      // Create user in DB
-      const newUser = await query(
-        `INSERT INTO users (id, email, username, name, role, verified, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-        [payload.sub, payload.email, payload.username || payload.email.split('@')[0], payload.name || '', 'buyer', true]
-      );
-      user = newUser.rows[0];
-    } else {
-      user = userResult.rows[0];
+    
+    try {
+      const { payload } = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY
+      });
+      
+      if (!payload || !payload.sub) {
+        return res.status(401).json({
+          success: false,
+          error: { message: 'Invalid Clerk token', code: 'INVALID_TOKEN' }
+        });
+      }
+      
+      // Try to get user from database, fallback to creating a user object
+      let user;
+      try {
+        const userResult = await query('SELECT * FROM users WHERE id = $1', [payload.sub]);
+        
+        if (userResult.rows.length === 0) {
+          // Try to create user in DB
+          const newUser = await query(
+            `INSERT INTO users (id, email, username, name, role, verified, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+            [
+              payload.sub, 
+              payload.email || 'user@example.com', 
+              payload.username || payload.email?.split('@')[0] || 'user',
+              payload.name || payload.firstName || '', 
+              'buyer', 
+              true
+            ]
+          );
+          user = newUser.rows[0];
+        } else {
+          user = userResult.rows[0];
+        }
+      } catch (dbError) {
+        // Database not available, create user object from token
+        console.log('Database not available, using token data');
+        user = {
+          id: payload.sub,
+          email: payload.email || 'user@example.com',
+          username: payload.username || payload.email?.split('@')[0] || 'user',
+          name: payload.name || payload.firstName || 'User',
+          role: 'buyer',
+          verified: true
+        };
+      }
+      
+      req.user = user;
+      next();
+      
+    } catch (clerkError) {
+      console.error('Clerk verification failed:', clerkError.message);
+      
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Authentication failed', code: 'AUTH_FAILED' }
+      });
     }
-    req.user = user;
-    next();
+    
   } catch (error) {
-    console.error('Clerk JWT verification error:', error);
+    console.error('Authentication error:', error);
+    
+    // In development, always allow bypass
+    if (process.env.NODE_ENV === 'development') {
+      const mockUserId = token ? `dev-user-${token.substring(0, 8)}` : 'dev-user-default';
+      req.user = {
+        id: mockUserId,
+        email: 'test@example.com',
+        username: 'testuser',
+        name: 'Test User',
+        role: 'buyer',
+        verified: true
+      };
+      console.log('✅ Fallback mock user created:', req.user);
+      return next();
+    }
+    
     return res.status(401).json({
       success: false,
       error: { message: 'Unauthorized', code: 'UNAUTHORIZED' }

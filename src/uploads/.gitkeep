@@ -1,0 +1,2 @@
+# This directory stores uploaded files
+# Git will track this directory but ignore its contents (see .gitignore)

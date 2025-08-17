@@ -22,8 +22,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const sellerDashboardRoutes = require('./routes/sellerDashboardRoutes');
 const buyerDashboardRoutes = require('./routes/buyerDashboardRoutes');
-const zoomRoutes = require('./routes/zoomRoutes');
+
 const aiRoutes = require('./routes/aiRoutes');
+const calRoutes = require('./routes/calRoutes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -68,6 +69,17 @@ app.set('passport', passport);
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('src/uploads'));
+
+// Test endpoint to verify server is running
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    clerkConfigured: !!process.env.CLERK_SECRET_KEY
+  });
+});
 
 // Swagger configuration
 const swaggerOptions = {
@@ -139,8 +151,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/seller', sellerDashboardRoutes);
 app.use('/api/buyer', buyerDashboardRoutes);
-app.use('/api/zoom', zoomRoutes);
+
 app.use('/api/ai', aiRoutes);
+app.use('/api/cal', calRoutes);
 
 // Welcome message for root endpoint
 app.get('/', (req, res) => {
@@ -161,8 +174,9 @@ app.get('/', (req, res) => {
       upload: '/api/upload',
       'seller-dashboard': '/api/seller/dashboard',
       'buyer-dashboard': '/api/buyer/dashboard',
-      'zoom-meetings': '/api/zoom/meetings',
-      'ai-ask': '/api/ai/ask'
+
+      'ai-ask': '/api/ai/ask',
+      'cal-scheduling': '/api/cal'
     }
   });
 });

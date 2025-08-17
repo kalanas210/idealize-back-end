@@ -454,133 +454,150 @@ router.post('/', clerkProtect,
       .withMessage('Each requirement must be between 3 and 200 characters'),
     body('gallery.images').isArray({ max: 10 })
       .withMessage('Maximum 10 images allowed'),
-    body('gallery.images.*').isURL()
-      .withMessage('Invalid image URL'),
-    body('gallery.video').optional().isURL()
-      .withMessage('Invalid video URL')
+    body('gallery.images.*').custom((value) => {
+      // Allow both full URLs and relative paths
+      if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads/'))) {
+        return true;
+      }
+      throw new Error('Invalid image URL or path');
+    }),
+    body('gallery.video').optional().custom((value) => {
+      if (!value) return true; // Optional field
+      // Allow both full URLs and relative paths
+      if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads/'))) {
+        return true;
+      }
+      throw new Error('Invalid video URL or path');
+    }),
+    body('status').optional().isIn(['draft', 'published'])
+      .withMessage('Status must be either draft or published')
   ],
   async (req, res) => {
     try {
+      console.log('📝 Received gig creation data:', JSON.stringify(req.body, null, 2));
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return errorResponse(res, 'Validation error', 400, errors.array());
       }
 
       const userId = req.user.id;
       const gigData = req.body;
 
-      // TODO: Replace with actual database queries
-      /*
       // Start transaction
-      await pool.query('BEGIN');
+      await query('BEGIN');
 
-      // Insert gig
-      const gigResult = await pool.query(
-        `INSERT INTO gigs (
-          seller_id, title, category_id, platform, tags,
-          description, requirements, images, video_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING id`,
-        [
-          userId,
-          gigData.gigTitle,
-          gigData.category,
-          gigData.platform,
-          gigData.tags,
-          gigData.gigDescription.description,
-          gigData.buyerRequirements,
-          gigData.gallery.images,
-          gigData.gallery.video
-        ]
-      );
-
-      const gigId = gigResult.rows[0].id;
-
-      // Insert packages
-      const packagePromises = Object.entries(gigData.pricing).map(([tier, pkg]) =>
-        pool.query(
-          `INSERT INTO gig_packages (
-            gig_id, tier, title, description, price,
-            delivery_time, revisions, features
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      try {
+        // Insert gig
+        const gigResult = await query(
+          `INSERT INTO gigs (
+            seller_id, title, category, platform, tags,
+            description, requirements, images, video_url, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING *`,
           [
-            gigId,
-            tier,
-            pkg.packageName,
-            pkg.description || '',
-            pkg.price,
-            pkg.delivery,
-            pkg.revision,
-            pkg.features
+            userId,
+            gigData.gigTitle,
+            gigData.category,
+            gigData.platform,
+            gigData.tags || [],
+            gigData.gigDescription.description,
+            gigData.buyerRequirements || [],
+            gigData.gallery?.images || [],
+            gigData.gallery?.video || null,
+            gigData.status || 'draft'
           ]
-        )
-      );
-
-      await Promise.all(packagePromises);
-
-      // Insert FAQ
-      if (gigData.gigDescription.faq?.length > 0) {
-        const faqPromises = gigData.gigDescription.faq.map(faq =>
-          pool.query(
-            `INSERT INTO gig_faqs (
-              gig_id, question, answer
-            ) VALUES ($1, $2, $3)`,
-            [gigId, faq.question, faq.answer]
-          )
         );
 
-        await Promise.all(faqPromises);
+        const gigId = gigResult.rows[0].id;
+        console.log('✅ Gig created with ID:', gigId);
+
+        // Insert packages
+        if (gigData.pricing && Array.isArray(gigData.pricing)) {
+          for (const packageData of gigData.pricing) {
+            await query(
+              `INSERT INTO gig_packages (
+                gig_id, tier, package_name, description, price,
+                delivery_time, revisions, features
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                gigId,
+                packageData.tier || 'basic',
+                packageData.packageName || 'Basic Package',
+                packageData.description || '',
+                packageData.price || 0,
+                packageData.delivery || 1,
+                packageData.revision || 0,
+                packageData.features || []
+              ]
+            );
+          }
+          console.log('✅ Gig packages created');
+        }
+
+        // Insert FAQ
+        if (gigData.gigDescription?.faq && Array.isArray(gigData.gigDescription.faq)) {
+          for (const faqItem of gigData.gigDescription.faq) {
+            await query(
+              `INSERT INTO gig_faqs (
+                gig_id, question, answer
+              ) VALUES ($1, $2, $3)`,
+              [
+                gigId,
+                faqItem.question || '',
+                faqItem.answer || ''
+              ]
+            );
+          }
+          console.log('✅ Gig FAQ created');
+        }
+
+        await query('COMMIT');
+        console.log('✅ Transaction committed successfully');
+
+        // Fetch complete gig data
+        const completeGigResult = await query(
+          `SELECT g.*, 
+                  json_agg(
+                    DISTINCT jsonb_build_object(
+                      'tier', gp.tier,
+                      'packageName', gp.package_name,
+                      'description', gp.description,
+                      'price', gp.price,
+                      'delivery', gp.delivery_time,
+                      'revision', gp.revisions,
+                      'features', gp.features
+                    )
+                  ) FILTER (WHERE gp.id IS NOT NULL) as pricing,
+                  json_agg(
+                    DISTINCT jsonb_build_object(
+                      'question', gf.question,
+                      'answer', gf.answer
+                    )
+                  ) FILTER (WHERE gf.id IS NOT NULL) as faq
+           FROM gigs g
+           LEFT JOIN gig_packages gp ON gp.gig_id = g.id
+           LEFT JOIN gig_faqs gf ON gf.gig_id = g.id
+           WHERE g.id = $1
+           GROUP BY g.id`,
+          [gigId]
+        );
+
+        const createdGig = completeGigResult.rows[0];
+        console.log('✅ Complete gig data fetched:', createdGig.id);
+
+        return successResponse(res, createdGig, 'Gig created successfully');
+
+      } catch (dbError) {
+        await query('ROLLBACK');
+        console.error('❌ Database error during gig creation:', dbError);
+        throw new Error(`Failed to create gig: ${dbError.message}`);
       }
 
-      await pool.query('COMMIT');
-
-      // Fetch complete gig data
-      const completeGig = await pool.query(
-        `SELECT g.*, 
-                array_agg(DISTINCT jsonb_build_object(
-                  'tier', gp.tier,
-                  'packageName', gp.title,
-                  'price', gp.price,
-                  'delivery', gp.delivery_time,
-                  'revision', gp.revisions,
-                  'features', gp.features
-                )) as pricing,
-                array_agg(DISTINCT jsonb_build_object(
-                  'question', gf.question,
-                  'answer', gf.answer
-                )) as faq
-         FROM gigs g
-         LEFT JOIN gig_packages gp ON gp.gig_id = g.id
-         LEFT JOIN gig_faqs gf ON gf.gig_id = g.id
-         WHERE g.id = $1
-         GROUP BY g.id`,
-        [gigId]
-      );
-      */
-
-      // Mock response
-      const createdGig = {
-        id: 'mock-gig-id',
-        gigTitle: gigData.gigTitle,
-        category: gigData.category,
-        platform: gigData.platform,
-        tags: gigData.tags,
-        pricing: gigData.pricing,
-        gigDescription: gigData.gigDescription,
-        buyerRequirements: gigData.buyerRequirements,
-        gallery: gigData.gallery,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      return successResponse(res, createdGig, 'Gig created successfully');
-
     } catch (error) {
-      // TODO: Rollback transaction if error occurs
-      // await pool.query('ROLLBACK');
-      
       console.error('Error creating gig:', error);
-      return errorResponse(res, 'Failed to create gig', 500);
+      return errorResponse(res, error.message || 'Failed to create gig', 500);
     }
   }
 );

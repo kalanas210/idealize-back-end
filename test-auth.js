@@ -39,20 +39,20 @@ async function testAuth() {
         console.log('User:', protectedResponse.data.data);
       }
 
-      // Test 3: Test Zoom endpoint with token
-      console.log('\n3. Testing Zoom endpoint with token...');
+      // Test 3: Test Cal.com endpoint with token
+      console.log('\n3. Testing Cal.com endpoint with token...');
       try {
-        const zoomResponse = await axios.get(`${API_BASE_URL}/api/zoom/meetings`, {
+        const calResponse = await axios.get(`${API_BASE_URL}/api/cal/health`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        console.log('✅ Zoom endpoint access successful');
+        console.log('✅ Cal.com endpoint access successful');
       } catch (error) {
         if (error.response?.status === 404) {
-          console.log('✅ Zoom endpoint accessible (404 expected for empty meetings)');
+          console.log('✅ Cal.com endpoint accessible (404 expected for empty meetings)');
         } else {
-          console.log('❌ Zoom endpoint error:', error.response?.status, error.response?.data);
+          console.log('❌ Cal.com endpoint error:', error.response?.status, error.response?.data);
         }
       }
 

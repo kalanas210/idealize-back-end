@@ -11,8 +11,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:dashboard": "node test-seller-dashboard.js",
     "test:buyer-dashboard": "node test-buyer-dashboard.js",
-    "test:zoom": "node test-zoom-integration.js",
-    "test:ai": "node test-ai-feature.js"
+
+    "test:ai": "node test-ai-feature.js",
+    "test:cal": "node test-cal-integration.js"
   },
   "repository": {
     "type": "git",

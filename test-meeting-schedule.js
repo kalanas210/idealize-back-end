@@ -40,7 +40,7 @@ async function testMeetingSchedule() {
     };
 
     try {
-      const scheduleResponse = await axios.post(`${API_BASE_URL}/api/zoom/meetings`, meetingData, {
+      const scheduleResponse = await axios.post(`${API_BASE_URL}/api/cal/book`, meetingData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
