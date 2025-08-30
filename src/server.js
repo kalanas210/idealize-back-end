@@ -25,6 +25,7 @@ const buyerDashboardRoutes = require('./routes/buyerDashboardRoutes');
 
 const aiRoutes = require('./routes/aiRoutes');
 const calRoutes = require('./routes/calRoutes');
+const howItWorksRoutes = require('./routes/howItWorksRoutes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -154,6 +155,7 @@ app.use('/api/buyer', buyerDashboardRoutes);
 
 app.use('/api/ai', aiRoutes);
 app.use('/api/cal', calRoutes);
+app.use('/api/how-it-works', howItWorksRoutes);
 
 // Welcome message for root endpoint
 app.get('/', (req, res) => {
@@ -176,7 +178,8 @@ app.get('/', (req, res) => {
       'buyer-dashboard': '/api/buyer/dashboard',
 
       'ai-ask': '/api/ai/ask',
-      'cal-scheduling': '/api/cal'
+      'cal-scheduling': '/api/cal',
+      'how-it-works': '/api/how-it-works'
     }
   });
 });

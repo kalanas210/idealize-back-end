@@ -5,6 +5,21 @@ const { verifyToken } = require('@clerk/backend');
 const { v4: uuidv4 } = require('uuid');
 
 /**
+ * Generate a consistent UUID for development mode
+ */
+const generateDevUserId = (token) => {
+  // Use a fixed namespace UUID for development
+  const namespace = '550e8400-e29b-41d4-a716-446655440000';
+  if (token) {
+    // Create a consistent ID based on token hash
+    const crypto = require('crypto');
+    const hash = crypto.createHash('md5').update(token).digest('hex');
+    return `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
+  }
+  return namespace; // Fallback to namespace UUID
+};
+
+/**
  * Protect routes - verify JWT token
  */
 const protect = async (req, res, next) => {
@@ -162,8 +177,8 @@ const clerkProtect = async (req, res, next) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('⚠️  Development mode: Using mock authentication');
       
-      // Create a mock user for development (use consistent ID based on token)
-      const mockUserId = token ? `dev-user-${token.substring(0, 8)}` : 'dev-user-default';
+      // Create a mock user for development with proper UUID format
+      const mockUserId = generateDevUserId(token);
       
       // Try to get the actual user role from database first
       try {
@@ -278,7 +293,7 @@ const clerkProtect = async (req, res, next) => {
     
     // In development, always allow bypass
     if (process.env.NODE_ENV === 'development') {
-      const mockUserId = token ? `dev-user-${token.substring(0, 8)}` : 'dev-user-default';
+      const mockUserId = generateDevUserId(token);
       req.user = {
         id: mockUserId,
         email: 'test@example.com',

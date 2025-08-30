@@ -27,7 +27,7 @@ router.get('/profile', clerkProtect, async (req, res, next) => {
       const result = await query(
         `SELECT id, email, username, name, role, verified, avatar, bio, location, skills, 
                 professional_title, experience, languages, phone, country, timezone,
-                seller_application_status, created_at, updated_at
+                social_accounts, verification_docs, city, created_at, updated_at
          FROM users WHERE id = $1`,
         [req.user.id]
       );
@@ -354,14 +354,38 @@ router.post('/become-seller',
          );
          
          if (userResult.rows.length === 0) {
-           // Create new user if doesn't exist
+           // Create new user with seller fields if doesn't exist
+           // Generate a unique username to avoid conflicts
+           let username = req.user.username || req.user.email?.split('@')[0] || 'user';
+           
+           // Check if username already exists and generate a unique one
+           let usernameExists = true;
+           let counter = 1;
+           let originalUsername = username;
+           
+           while (usernameExists) {
+             const usernameCheck = await query(
+               'SELECT id FROM users WHERE username = $1',
+               [username]
+             );
+             
+             if (usernameCheck.rows.length === 0) {
+               usernameExists = false;
+             } else {
+               username = `${originalUsername}${counter}`;
+               counter++;
+             }
+           }
+           
+           console.log(`📝 Creating new user with username: ${username}`);
+           
            await query(
-             `INSERT INTO users (id, email, username, name, role, verified, phone, bio, skills, languages, location, timezone, avatar, country, city)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+             `INSERT INTO users (id, email, username, name, role, verified, phone, bio, skills, languages, location, timezone, avatar, country, city, professional_title, experience, social_accounts, verification_docs)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
              [
                userId,
                email || req.user.email,
-               req.user.username || 'user',
+               username,
                fullName,
                'seller',
                false,
@@ -373,11 +397,17 @@ router.post('/become-seller',
                timezone,
                avatar,
                country,
-               city
+               city,
+               professionalTitle,
+               experience,
+               socialAccounts ? JSON.stringify(socialAccounts) : null,
+               verificationDocs ? JSON.stringify(verificationDocs) : null
              ]
            );
          } else {
-           // Update existing user
+           // Update existing user with all seller fields
+           console.log(`📝 Updating existing user: ${userId} to seller role`);
+           
            await query(
              `UPDATE users 
               SET role = 'seller',
@@ -391,8 +421,12 @@ router.post('/become-seller',
                   avatar = COALESCE($8, avatar),
                   country = $9,
                   city = $10,
+                  professional_title = $11,
+                  experience = $12,
+                  social_accounts = $13,
+                  verification_docs = $14,
                   updated_at = NOW()
-              WHERE id = $11`,
+              WHERE id = $15`,
              [
                fullName,
                phone,
@@ -404,40 +438,17 @@ router.post('/become-seller',
                avatar,
                country,
                city,
+               professionalTitle,
+               experience,
+               socialAccounts ? JSON.stringify(socialAccounts) : null,
+               verificationDocs ? JSON.stringify(verificationDocs) : null,
                userId
              ]
            );
+           
+           console.log(`✅ Successfully updated user ${userId} to seller`);
+           
          }
-         
-         // Create seller application record
-         await query(
-           `INSERT INTO seller_applications 
-            (user_id, professional_title, experience, bio, skills, languages, social_accounts, portfolio, verification_docs, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            ON CONFLICT (user_id) DO UPDATE SET
-              professional_title = EXCLUDED.professional_title,
-              experience = EXCLUDED.experience,
-              bio = EXCLUDED.bio,
-              skills = EXCLUDED.skills,
-              languages = EXCLUDED.languages,
-              social_accounts = EXCLUDED.social_accounts,
-              portfolio = EXCLUDED.portfolio,
-              verification_docs = EXCLUDED.verification_docs,
-              status = 'pending',
-              updated_at = NOW()`,
-           [
-             userId,
-             professionalTitle,
-             experience,
-             bio,
-             skills,
-             languages,
-             socialAccounts ? JSON.stringify(socialAccounts) : null,
-             portfolio ? JSON.stringify(portfolio) : null,
-             verificationDocs ? JSON.stringify(verificationDocs) : null,
-             'pending'
-           ]
-         );
          
          // Get updated user data
          const result = await query(
