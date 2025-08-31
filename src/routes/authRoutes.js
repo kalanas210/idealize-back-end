@@ -3,6 +3,7 @@ import {
   register,
   login,
   testLogin,
+  adminLogin,
   clerkWebhook,
   getProfile,
   updateProfile,
@@ -21,6 +22,7 @@ const router = express.Router();
 router.post('/register', authRateLimit(), register);
 router.post('/login', authRateLimit(), login);
 router.post('/test-login', testLogin); // Development only
+router.post('/admin-login', adminLogin); // Admin login
 router.post('/verify-token', verifyTokenEndpoint);
 router.post('/request-password-reset', authRateLimit(3, 30), requestPasswordReset);
 router.post('/reset-password', authRateLimit(3, 30), resetPassword);

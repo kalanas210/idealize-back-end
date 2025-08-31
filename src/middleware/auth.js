@@ -319,6 +319,59 @@ export const requireVerification = (verificationType = 'email') => {
   };
 };
 
+// JWT-only authentication middleware (for admin routes)
+export const authenticateJWT = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Access token required',
+          code: 'TOKEN_REQUIRED'
+        }
+      });
+    }
+
+    // Verify JWT token
+    const user = await verifyJWTToken(token);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Invalid token',
+          code: 'INVALID_TOKEN'
+        }
+      });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Account is not active',
+          code: 'ACCOUNT_INACTIVE'
+        }
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('JWT Authentication error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Authentication failed',
+        code: 'AUTH_ERROR'
+      }
+    });
+  }
+};
+
 // Generate JWT token
 export const generateToken = (userId, expiresIn = null) => {
   const payload = { userId };

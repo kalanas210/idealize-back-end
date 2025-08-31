@@ -1,13 +1,13 @@
 import express from 'express';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateJWT, requireAdmin } from '../middleware/auth.js';
 import { validatePagination } from '../middleware/validation.js';
 import { User, Gig, Order, Review } from '../models/index.js';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
 
-// Apply admin authentication to all routes
-router.use(authenticateToken, requireAdmin);
+// Apply JWT-only admin authentication to all routes
+router.use(authenticateJWT, requireAdmin);
 
 // Dashboard stats
 router.get('/dashboard', asyncHandler(async (req, res) => {
@@ -109,16 +109,14 @@ router.get('/seller-applications', validatePagination, asyncHandler(async (req, 
   const { page, limit, skip } = req.pagination;
   
   const applications = await User.find({
-    role: 'seller',
-    'sellerProfile.verificationDocs': { $exists: true, $ne: [] }
+    role: 'seller'
   })
     .skip(skip)
     .limit(limit)
     .sort({ createdAt: -1 });
 
   const total = await User.countDocuments({
-    role: 'seller',
-    'sellerProfile.verificationDocs': { $exists: true, $ne: [] }
+    role: 'seller'
   });
 
   res.json({

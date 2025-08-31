@@ -496,3 +496,62 @@ export const testLogin = asyncHandler(async (req, res) => {
     }
   });
 });
+
+// Admin login for development (creates or logs in admin user)
+export const adminLogin = asyncHandler(async (req, res) => {
+  const { email = 'admin@socyads.com', password = 'AdminPassword123!' } = req.body;
+
+  // Find or create admin user
+  let user = await User.findOne({ email: email.toLowerCase() });
+
+  if (!user) {
+    // Create admin user
+    user = await User.create({
+      email: email.toLowerCase(),
+      username: 'admin',
+      password, 
+      firstName: 'Admin',
+      lastName: 'User',
+      displayName: 'Administrator',
+      role: 'admin',
+      verified: {
+        email: true,
+        identity: true,
+        phone: false
+      },
+      status: 'active'
+    });
+    console.log('✅ Admin user created:', email);
+  } else {
+    // Verify password for existing admin
+    const isValidPassword = await user.comparePassword(password);
+    if (!isValidPassword) {
+      throw new AppError('Invalid admin credentials', 401, 'INVALID_CREDENTIALS');
+    }
+  }
+
+  // Generate token
+  const token = generateToken(user._id);
+
+  // Update login stats
+  user.loginCount += 1;
+  user.lastLogin = new Date();
+  await user.save();
+
+  res.json({
+    success: true,
+    message: 'Admin login successful',
+    data: {
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        verified: user.verified,
+        avatar: user.avatar
+      },
+      token
+    }
+  });
+});

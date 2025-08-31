@@ -68,7 +68,8 @@ router.post('/become-seller', authenticateToken, asyncHandler(async (req, res) =
     skills,
     languages,
     socialAccounts,
-    portfolio
+    portfolio,
+    verificationDocs
   } = req.body;
 
   const user = await User.findById(req.user._id);
@@ -86,6 +87,7 @@ router.post('/become-seller', authenticateToken, asyncHandler(async (req, res) =
     languages: languages || [],
     socialAccounts: socialAccounts || [],
     portfolio: portfolio || [],
+    verificationDocs: verificationDocs || [],
     rating: 0,
     totalReviews: 0,
     totalEarnings: 0,

@@ -75,13 +75,21 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Clerk middleware (only if configured)
+// Clerk middleware (only if configured) - exclude auth routes
 if (process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY) {
-  app.use(clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
-  }));
-  console.log('✅ Clerk middleware enabled');
+  app.use((req, res, next) => {
+    // Skip Clerk middleware for auth routes and admin routes that use JWT
+    if (req.path.startsWith('/api/auth/') || req.path.startsWith('/api/admin/')) {
+      return next();
+    }
+    
+    // Apply Clerk middleware for other routes
+    return clerkMiddleware({
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      secretKey: process.env.CLERK_SECRET_KEY,
+    })(req, res, next);
+  });
+  console.log('✅ Clerk middleware enabled (excluding auth routes)');
 } else {
   console.log('⚠️  Clerk not configured - using JWT authentication only');
 }
